@@ -15,6 +15,7 @@ class FftPlot(QWidget):
     """A dockable FFT spectrum plot panel."""
 
     closed = Signal()
+    showAllRequested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -47,6 +48,13 @@ class FftPlot(QWidget):
         """)
         self._window_combo.currentTextChanged.connect(self._on_window_changed)
 
+        show_all_btn = QPushButton("Show All")
+        show_all_btn.setStyleSheet(
+            "QPushButton { border: 1px solid #555; color: #ccc; padding: 2px 8px; font-size: 10px; }"
+            "QPushButton:hover { color: #fff; background: #555; }"
+        )
+        show_all_btn.clicked.connect(self.showAllRequested.emit)
+
         close_btn = QPushButton("×")
         close_btn.setFixedSize(22, 22)
         close_btn.setStyleSheet(
@@ -58,6 +66,7 @@ class FftPlot(QWidget):
         header_layout.addWidget(self._title, 1)
         header_layout.addWidget(window_label)
         header_layout.addWidget(self._window_combo)
+        header_layout.addWidget(show_all_btn)
         header_layout.addWidget(close_btn)
         layout.addWidget(header)
 
@@ -74,7 +83,7 @@ class FftPlot(QWidget):
         self._plot.setLabel("left", "Magnitude", units="dB", color="#cccccc")
 
         self._curve = pg.PlotDataItem(
-            [], [], pen=pg.mkPen("#55ff55", width=1.5), stepMode="center",
+            [], [], pen=pg.mkPen("#55ff55", width=2.0),
         )
         self._plot.addItem(self._curve)
 

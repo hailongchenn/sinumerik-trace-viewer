@@ -39,6 +39,7 @@ class MainWindow(QMainWindow):
         self.trace_data = None
         self.parser = XmlTraceParser()
         self._last_fft_channel = None  # for toolbar FFT button
+        self._pre_fft_visibility = {}   # saved visibility state before FFT isolation
 
         self._build_ui()
         self._apply_dark_theme()
@@ -86,6 +87,7 @@ class MainWindow(QMainWindow):
         self.measurement_table = MeasurementTable()
         self.measurement_table.visibilityChanged.connect(self._on_channel_visibility)
         self.measurement_table.fftRequested.connect(self._on_fft_requested)
+        self.fft_plot.showAllRequested.connect(self._restore_all_channels)
 
         # Outer vertical splitter: (time+fft) + measurement table
         v_splitter = QSplitter(Qt.Vertical)
@@ -174,13 +176,29 @@ class MainWindow(QMainWindow):
             self._compute_and_show_fft(self._last_fft_channel)
 
     def _compute_and_show_fft(self, key: str):
-        """Run FFT on the selected channel and show the panel."""
+        """Run FFT on the selected channel and show the panel.
+
+        Isolates the selected channel: hides all others so the time-domain
+        plot shows only the channel being analyzed.
+        """
         if self.trace_data is None or key not in self.trace_data.channels:
             return
 
         t1, t2 = self.plot_widget.get_cursor_values()
         if t1 is None:
             return
+
+        # Save current visibility and isolate the selected channel
+        self._pre_fft_visibility = {}
+        for ck in self.trace_data.channels:
+            vis = self.plot_widget._curves.is_visible(ck)
+            self._pre_fft_visibility[ck] = vis
+            if ck != key and vis:
+                self.plot_widget.set_channel_visible(ck, False)
+
+        # Ensure selected channel is visible
+        if not self._pre_fft_visibility.get(key, True):
+            self.plot_widget.set_channel_visible(key, True)
 
         ch = self.trace_data.channels[key]
         time = self.trace_data.time
@@ -199,16 +217,28 @@ class MainWindow(QMainWindow):
         freqs, mag, mag_db = result
         self.fft_plot.set_fft_data(name, freqs, mag_db, window, t1, t2)
 
-        # Allocate ~25% of the top splitter to FFT
+        # Allocate ~30% of the top splitter to FFT
         if self._top_splitter.count() >= 2:
             total = self._top_splitter.height()
             if total > 0:
                 self._top_splitter.setSizes([int(total * 0.65), int(total * 0.35)])
 
+        # Refresh measurements to reflect isolated channel
+        self._update_measurements()
+
         self.status_bar.showMessage(
             f"FFT: {name} | {min(t1, t2):.4f}s–{max(t1, t2):.4f}s | "
             f"peak={freqs[np.argmax(mag)]:.1f} Hz (window: {window})"
         )
+
+    def _restore_all_channels(self):
+        """Restore channel visibility to pre-FFT state."""
+        if not self._pre_fft_visibility:
+            return
+        for ck, vis in self._pre_fft_visibility.items():
+            self.plot_widget.set_channel_visible(ck, vis)
+        self._pre_fft_visibility = {}
+        self._update_measurements()
 
 
 def main():
