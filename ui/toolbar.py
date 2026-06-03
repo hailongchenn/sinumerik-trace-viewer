@@ -17,4 +17,11 @@ def setup_toolbar(parent) -> QToolBar:
     reset_zoom_act.triggered.connect(parent._reset_zoom)
     toolbar.addAction(reset_zoom_act)
 
+    toolbar.addSeparator()
+
+    fft_act = QAction("FFT", parent)
+    fft_act.setToolTip("Compute FFT of cursor region for last-clicked channel")
+    fft_act.triggered.connect(parent._on_fft_toolbar)
+    toolbar.addAction(fft_act)
+
     return toolbar

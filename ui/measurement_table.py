@@ -1,10 +1,10 @@
-"""Measurement table with per-channel visibility checkboxes."""
+"""Measurement table with per-channel visibility checkboxes and FFT context menu."""
 from PySide6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QHeaderView,
-    QAbstractItemView, QCheckBox,
+    QAbstractItemView, QCheckBox, QMenu,
 )
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QColor
+from PySide6.QtGui import QColor, QAction
 
 from utils import parse_color
 
@@ -13,6 +13,7 @@ class MeasurementTable(QTableWidget):
     """Bottom table showing per-channel statistics with colored visibility toggles."""
 
     visibilityChanged = Signal(str, bool)
+    fftRequested = Signal(str)
 
     COL_VISIBLE = 0
     COL_CHANNEL = 1
@@ -139,3 +140,29 @@ class MeasurementTable(QTableWidget):
                     self.setItem(row, col, item)
                 item.setText(value)
                 item.setForeground(dim_color)
+
+    # ------------------------------------------------------------------
+    # Context menu
+    # ------------------------------------------------------------------
+
+    def contextMenuEvent(self, event):
+        """Right-click on a channel name row → show FFT / visibility options."""
+        item = self.itemAt(event.pos())
+        if item is None:
+            return
+
+        row = item.row()
+        if row < 0 or row >= len(self._channel_keys):
+            return
+
+        key = self._channel_keys[row]
+        meta = self._channel_meta.get(key, {})
+        channel_name = meta.get("name", key)
+
+        menu = QMenu(self)
+
+        fft_action = QAction(f"Compute FFT — {channel_name}", self)
+        fft_action.triggered.connect(lambda: self.fftRequested.emit(key))
+        menu.addAction(fft_action)
+
+        menu.exec(event.globalPos())
